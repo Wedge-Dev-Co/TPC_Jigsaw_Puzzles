@@ -1,0 +1,2 @@
+A jigsaw puzzle game intended to be played on the Teapot Commons website.
+

@@ -1,0 +1,4 @@
+The final product must be hosted on a web server 
+
+That web server must be able to send oEmbed responses
+

@@ -1,0 +1,13 @@
+Action items:
+
+1. Figure out oEmbed content constraints
+
+2. Figure out what kinds of content can be hosted on a server
+
+3. Develop content that aligns with the aforementioned constraints
+
+4. Host that content on an external server
+
+5. Connect that content to the TPC site using oEmbed standards
+
+6. Play game

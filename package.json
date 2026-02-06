@@ -1,0 +1,25 @@
+{
+  "name": "tpc_jigsaw_puzzles",
+  "version": "1.0.0",
+  "description": "GItHub repo for the Teapot Commons jigsaw puzzle game",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Wedge-Dev-Co/TPC_Jigsaw_Puzzles.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Wedge-Dev-Co/TPC_Jigsaw_Puzzles/issues"
+  },
+  "homepage": "https://github.com/Wedge-Dev-Co/TPC_Jigsaw_Puzzles#readme",
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1"
+  }
+}

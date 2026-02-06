@@ -2,3 +2,5 @@ I should be able to easily add new image files
 
 I want to be able to play the game fullscreen
 
+I want to control the number of pieces an image is split into
+

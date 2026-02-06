@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"C:/myfiles/business/Materia/Wedge_Dev/dev/games/TPC_Jigsaw_Puzzles\" log --oneline --all)",
+      "Bash(git -C \"C:/myfiles/business/Materia/Wedge_Dev/dev/games/TPC_Jigsaw_Puzzles\" diff \"notes/Brainstorm 1.txt\")",
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(curl:*)",
+      "Bash(node:*)",
+      "Bash(taskkill:*)",
+      "WebFetch(domain:www.stavepuzzles.com)",
+      "WebSearch",
+      "WebFetch(domain:nautiluspuzzles.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:blog.bonnieeisenman.com)",
+      "WebFetch(domain:www.juricho.me)",
+      "WebFetch(domain:proceduraljigsaw.github.io)"
+    ]
+  }
+}

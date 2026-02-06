@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jigsaw Puzzles - Teapot Commons</title>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Jigsaw Puzzles</h1>
+        <p class="subtitle">Teapot Commons</p>
+        <div id="puzzle-grid" class="puzzle-grid"></div>
+    </div>
+
+    <script>
+        async function loadPuzzles() {
+            const grid = document.getElementById('puzzle-grid');
+            try {
+                const res = await fetch('/api/puzzles');
+                const puzzles = await res.json();
+
+                if (puzzles.length === 0) {
+                    grid.innerHTML = '<div class="empty-state"><p>No puzzles available yet.</p><p>Drop image files into the <code>puzzles/</code> directory to get started.</p></div>';
+                    return;
+                }
+
+                grid.innerHTML = puzzles.map(p => `
+                    <a class="puzzle-card" href="/play/${p.id}">
+                        <img src="${p.imageUrl}" alt="${p.title}" loading="lazy">
+                        <div class="card-body">
+                            <div class="card-title">${p.title}</div>
+                        </div>
+                    </a>
+                `).join('');
+            } catch (err) {
+                grid.innerHTML = '<div class="empty-state"><p>Failed to load puzzles.</p></div>';
+            }
+        }
+
+        loadPuzzles();
+    </script>
+</body>
+</html>

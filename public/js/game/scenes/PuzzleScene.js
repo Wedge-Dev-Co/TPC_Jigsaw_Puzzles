@@ -50,6 +50,12 @@ class PuzzleScene extends Phaser.Scene {
         const scaleToFit = Math.min(maxW / imgFrame.width, maxH / imgFrame.height);
         GAME_DATA.puzzleScale = scaleToFit;
 
+        // Dynamic snap threshold based on piece screen size
+        const pieceScrW = cellW * scaleToFit;
+        const pieceScrH = cellH * scaleToFit;
+        const smallerDim = Math.min(pieceScrW, pieceScrH);
+        this.snapThreshold = Math.max(8, Math.min(smallerDim * 0.6, 30));
+
         // Board origin (top-left of where the assembled puzzle sits)
         GAME_DATA.boardOriginX = padding + (maxW - imgFrame.width * scaleToFit) / 2;
         GAME_DATA.boardOriginY = padding + (maxH - imgFrame.height * scaleToFit) / 2;
@@ -65,53 +71,120 @@ class PuzzleScene extends Phaser.Scene {
         // Generate edge map
         const edgeMap = PieceCutter.generateEdgeMap(cols, rows);
 
-        // Create pieces
-        this.pieces = PieceFactory.createPieces(this, edgeMap, cols, rows);
+        if (this.totalPieces > 100) {
+            // Async piece creation for large puzzles
+            this._showProgress();
+            PieceFactory.createPiecesAsync(this, edgeMap, cols, rows, (fraction) => {
+                this._updateProgress(fraction);
+            }).then((pieces) => {
+                this.pieces = pieces;
+                this._hideProgress();
+                this.finishSetup();
+            });
+        } else {
+            // Synchronous for small puzzles
+            this.pieces = PieceFactory.createPieces(this, edgeMap, cols, rows);
+            this.finishSetup();
+        }
+
+        // Handle resize
+        this.scale.on('resize', (gameSize) => {
+            this.handleResize(gameSize);
+        });
+    }
+
+    _showProgress() {
+        const { width, height } = this.scale;
+        this.progressText = this.add.text(width / 2, height / 2, 'Cutting pieces... 0%', {
+            fontSize: '20px',
+            fontFamily: 'Segoe UI, sans-serif',
+            color: '#e0c097'
+        }).setOrigin(0.5).setDepth(5000);
+    }
+
+    _updateProgress(fraction) {
+        if (this.progressText) {
+            this.progressText.setText(`Cutting pieces... ${Math.round(fraction * 100)}%`);
+        }
+    }
+
+    _hideProgress() {
+        if (this.progressText) {
+            this.progressText.destroy();
+            this.progressText = null;
+        }
+    }
+
+    finishSetup() {
+        const { height } = this.scale;
+        const scaleToFit = GAME_DATA.puzzleScale;
+
+        // Build piece lookup and initialize groups
+        this.pieceMap = SnapSystem.buildPieceMap(
+            this.pieces, GAME_DATA.gridCols, GAME_DATA.gridRows
+        );
+        SnapSystem.initGroups(this.pieces);
 
         // Scramble pieces into the tray
         ScrambleSystem.scatter(this.pieces, this.boardWidth, 0, this.trayWidth, height, scaleToFit);
 
-        // Set up drag & drop
+        // Set up drag & drop (group-aware)
         this.input.on('dragstart', (pointer, gameObject) => {
-            gameObject.setDepth(1000);
-            gameObject.setScale(GAME_DATA.puzzleScale * 1.05); // Slight grow on pick up
-            gameObject.setAlpha(0.9);
+            const group = gameObject.getData('group');
+            group.forEach(p => {
+                p.setDepth(1000);
+                p.setScale(GAME_DATA.puzzleScale * 1.05);
+                p.setAlpha(0.9);
+            });
         });
 
         this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
-            gameObject.x = dragX;
-            gameObject.y = dragY;
+            // Compute delta from where Phaser wants to place the piece
+            const dx = dragX - gameObject.x;
+            const dy = dragY - gameObject.y;
+            const group = gameObject.getData('group');
+            group.forEach(p => {
+                p.x += dx;
+                p.y += dy;
+            });
         });
 
         this.input.on('dragend', (pointer, gameObject) => {
-            gameObject.setScale(GAME_DATA.puzzleScale);
-            gameObject.setAlpha(1);
-            gameObject.setDepth(gameObject.getData('defaultDepth') || 1);
+            const group = gameObject.getData('group');
+            group.forEach(p => {
+                p.setScale(GAME_DATA.puzzleScale);
+                p.setAlpha(1);
+                p.setDepth(p.getData('defaultDepth') || 1);
+            });
 
-            const wasSnapped = SnapSystem.trySnap(gameObject, GAME_DATA, CONSTANTS.SNAP_THRESHOLD);
-            if (wasSnapped) {
-                this.snappedCount++;
-                this.updateCounter();
+            // 1) Try snapping to adjacent groups anywhere on screen
+            const neighborSnapped = SnapSystem.trySnapToNeighbors(
+                gameObject, this.pieceMap, GAME_DATA, this.snapThreshold
+            );
 
-                // Snap feedback: brief flash
+            // 2) Try snapping the (possibly larger) group to the board
+            const boardSnappedCount = SnapSystem.trySnapToBoard(
+                gameObject, GAME_DATA, this.snapThreshold
+            );
+
+            if (neighborSnapped || boardSnappedCount > 0) {
                 this.tweens.add({
-                    targets: gameObject,
+                    targets: gameObject.getData('group'),
                     alpha: { from: 0.5, to: 1 },
                     duration: 150,
                     ease: 'Power2'
                 });
+            }
 
+            if (boardSnappedCount > 0) {
+                this.snappedCount += boardSnappedCount;
+                this.updateCounter();
                 this.checkWin();
             }
         });
 
         // UI elements (on top)
         this.createUI();
-
-        // Handle resize
-        this.scale.on('resize', (gameSize) => {
-            this.handleResize(gameSize);
-        });
     }
 
     createUI() {
@@ -125,27 +198,23 @@ class PuzzleScene extends Phaser.Scene {
             color: '#e0c097'
         }).setDepth(2000);
 
-        // Reference image thumbnail (top-right of tray)
-        const thumbMaxW = this.trayWidth * 0.7;
-        const thumbMaxH = height * 0.2;
-        const imgTexture = this.textures.get(GAME_DATA.imageKey);
-        const imgFrame = imgTexture.getSourceImage();
-        const thumbScale = Math.min(thumbMaxW / imgFrame.width, thumbMaxH / imgFrame.height);
-
-        this.refImage = this.add.image(
-            this.boardWidth + this.trayWidth / 2,
-            height - 15 - (imgFrame.height * thumbScale) / 2,
-            GAME_DATA.imageKey
-        ).setScale(thumbScale).setAlpha(0.7).setDepth(2000);
-
-        this.add.text(
-            this.boardWidth + this.trayWidth / 2,
-            this.refImage.y - (imgFrame.height * thumbScale) / 2 - 12,
-            'Reference', {
-            fontSize: '12px',
+        // "Show Image" button (replaces always-visible thumbnail)
+        this.refOverlayVisible = false;
+        this.refBtn = this.add.text(this.boardWidth + this.trayWidth / 2, height - 40,
+            'Show Image', {
+            fontSize: '14px',
             fontFamily: 'Segoe UI, sans-serif',
-            color: '#888'
-        }).setOrigin(0.5).setDepth(2000);
+            color: '#e0c097',
+            backgroundColor: '#16213e',
+            padding: { x: 12, y: 6 }
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(2000);
+
+        this.refBtn.on('pointerdown', () => this.toggleReferenceImage());
+        this.refBtn.on('pointerover', () => this.refBtn.setColor('#fff'));
+        this.refBtn.on('pointerout', () => this.refBtn.setColor('#e0c097'));
+
+        // R key shortcut for reference image toggle
+        this.input.keyboard.on('keydown-R', () => this.toggleReferenceImage());
 
         // Fullscreen button
         const fsBtn = this.add.text(width - 15, 15, '[ ]', {
@@ -178,6 +247,45 @@ class PuzzleScene extends Phaser.Scene {
         backBtn.on('pointerdown', () => this.scene.start('MenuScene'));
         backBtn.on('pointerover', () => backBtn.setColor('#e0c097'));
         backBtn.on('pointerout', () => backBtn.setColor('#888'));
+    }
+
+    toggleReferenceImage() {
+        if (this.refOverlayVisible) {
+            // Hide overlay
+            if (this.refOverlayGroup) {
+                this.refOverlayGroup.forEach(obj => obj.destroy());
+                this.refOverlayGroup = null;
+            }
+            this.refOverlayVisible = false;
+            this.refBtn.setText('Show Image');
+        } else {
+            // Show overlay
+            const { width, height } = this.scale;
+            this.refOverlayGroup = [];
+
+            const backdrop = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7)
+                .setDepth(3000).setInteractive({ useHandCursor: true });
+            backdrop.on('pointerdown', () => this.toggleReferenceImage());
+            this.refOverlayGroup.push(backdrop);
+
+            const imgTexture = this.textures.get(GAME_DATA.imageKey);
+            const imgFrame = imgTexture.getSourceImage();
+            const pad = 60;
+            const overlayScale = Math.min((width - pad * 2) / imgFrame.width, (height - pad * 2) / imgFrame.height);
+            const refImg = this.add.image(width / 2, height / 2, GAME_DATA.imageKey)
+                .setScale(overlayScale).setDepth(3001);
+            this.refOverlayGroup.push(refImg);
+
+            const hint = this.add.text(width / 2, height - 30, 'Click anywhere to dismiss (R)', {
+                fontSize: '14px',
+                fontFamily: 'Segoe UI, sans-serif',
+                color: '#aaa'
+            }).setOrigin(0.5).setDepth(3002);
+            this.refOverlayGroup.push(hint);
+
+            this.refOverlayVisible = true;
+            this.refBtn.setText('Hide Image');
+        }
     }
 
     updateCounter() {

@@ -5,6 +5,7 @@ const corsMiddleware = require('./middleware/cors');
 const oembedRoutes = require('./routes/oembed');
 const puzzleRoutes = require('./routes/puzzles');
 const gameRoutes = require('./routes/game');
+const uploadRoutes = require('./routes/upload');
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use('/lib', express.static(path.join(__dirname, '..', 'lib')));
 app.use(oembedRoutes);
 app.use(puzzleRoutes);
 app.use(gameRoutes);
+app.use(uploadRoutes);
 
 app.listen(config.port, () => {
     console.log(`TPC Jigsaw Puzzles running at ${config.baseUrl}`);

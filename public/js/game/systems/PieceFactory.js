@@ -5,7 +5,7 @@
 const PieceFactory = {
 
     /**
-     * Create all puzzle pieces as Phaser sprites.
+     * Create all puzzle pieces synchronously (for small puzzles).
      *
      * @param {Phaser.Scene} scene
      * @param {object} edgeMap - from PieceCutter.generateEdgeMap
@@ -38,28 +38,84 @@ const PieceFactory = {
         return pieces;
     },
 
+    /**
+     * Create pieces asynchronously in batches (for large puzzles).
+     * Yields between batches via requestAnimationFrame to keep UI responsive.
+     *
+     * @param {Phaser.Scene} scene
+     * @param {object} edgeMap
+     * @param {number} cols
+     * @param {number} rows
+     * @param {function} onProgress - called with fraction (0-1) after each batch
+     * @returns {Promise<Phaser.GameObjects.Sprite[]>}
+     */
+    createPiecesAsync(scene, edgeMap, cols, rows, onProgress) {
+        const imgTexture = scene.textures.get(GAME_DATA.imageKey);
+        const sourceImage = imgTexture.getSourceImage();
+
+        const cellW = sourceImage.width / cols;
+        const cellH = sourceImage.height / rows;
+        const tabW = Math.round(cellW * CONSTANTS.TAB_SIZE);
+        const tabH = Math.round(cellH * CONSTANTS.TAB_SIZE);
+
+        const totalPieces = cols * rows;
+        const pieces = [];
+        const batchSize = 50;
+        let index = 0;
+
+        return new Promise((resolve) => {
+            const processBatch = () => {
+                const end = Math.min(index + batchSize, totalPieces);
+                for (; index < end; index++) {
+                    const col = index % cols;
+                    const row = Math.floor(index / cols);
+                    const edges = PieceCutter.getEdges(edgeMap, col, row, cols, rows);
+                    const piece = this._createPiece(
+                        scene, sourceImage, col, row, cols, rows,
+                        cellW, cellH, tabW, tabH, edges
+                    );
+                    pieces.push(piece);
+                }
+
+                if (onProgress) {
+                    onProgress(index / totalPieces);
+                }
+
+                if (index < totalPieces) {
+                    requestAnimationFrame(processBatch);
+                } else {
+                    resolve(pieces);
+                }
+            };
+
+            requestAnimationFrame(processBatch);
+        });
+    },
+
     _createPiece(scene, sourceImage, col, row, cols, rows, cellW, cellH, tabW, tabH, edges) {
-        // Canvas size includes tab overflow on all sides
-        const canvasW = Math.ceil(cellW + tabW * 2);
-        const canvasH = Math.ceil(cellH + tabH * 2);
+        // Canvas margin is larger than tabSize to accommodate Bezier overshoot
+        const marginW = Math.ceil(tabW * 1.25);
+        const marginH = Math.ceil(tabH * 1.25);
+        const canvasW = Math.ceil(cellW + marginW * 2);
+        const canvasH = Math.ceil(cellH + marginH * 2);
 
         const canvas = document.createElement('canvas');
         canvas.width = canvasW;
         canvas.height = canvasH;
         const ctx = canvas.getContext('2d');
 
-        // Draw the jigsaw piece clip path
-        PieceCutter.drawPiecePath(ctx, cellW, cellH, edges, tabW, tabH);
+        // Draw the jigsaw piece clip path (margin > tabSize for overshoot room)
+        PieceCutter.drawPiecePath(ctx, cellW, cellH, edges, tabW, tabH, marginW, marginH);
         ctx.clip();
 
-        // Source region from the full image (with tab overflow)
-        const sx = col * cellW - tabW;
-        const sy = row * cellH - tabH;
+        // Source region from the full image (with overflow margin)
+        const sx = col * cellW - marginW;
+        const sy = row * cellH - marginH;
 
         ctx.drawImage(sourceImage, sx, sy, canvasW, canvasH, 0, 0, canvasW, canvasH);
 
         // Draw subtle border along the piece edge
-        PieceCutter.drawPiecePath(ctx, cellW, cellH, edges, tabW, tabH);
+        PieceCutter.drawPiecePath(ctx, cellW, cellH, edges, tabW, tabH, marginW, marginH);
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.lineWidth = 1.5;
         ctx.stroke();

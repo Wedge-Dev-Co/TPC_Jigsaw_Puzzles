@@ -10,6 +10,15 @@
     <div class="container">
         <h1>Jigsaw Puzzles</h1>
         <p class="subtitle">Teapot Commons</p>
+
+        <div class="upload-section">
+            <div class="upload-controls">
+                <input type="file" id="upload-input" accept="image/jpeg,image/png,image/webp">
+                <button id="upload-btn" class="upload-btn">Upload &amp; Play</button>
+            </div>
+            <div id="upload-status" class="upload-status"></div>
+        </div>
+
         <div id="puzzle-grid" class="puzzle-grid"></div>
     </div>
 
@@ -21,7 +30,7 @@
                 const puzzles = await res.json();
 
                 if (puzzles.length === 0) {
-                    grid.innerHTML = '<div class="empty-state"><p>No puzzles available yet.</p><p>Drop image files into the <code>puzzles/</code> directory to get started.</p></div>';
+                    grid.innerHTML = '<div class="empty-state"><p>No puzzles available yet.</p><p>Upload an image above or drop files into the <code>puzzles/</code> directory.</p></div>';
                     return;
                 }
 
@@ -37,6 +46,44 @@
                 grid.innerHTML = '<div class="empty-state"><p>Failed to load puzzles.</p></div>';
             }
         }
+
+        document.getElementById('upload-btn').addEventListener('click', async () => {
+            const input = document.getElementById('upload-input');
+            const status = document.getElementById('upload-status');
+            const btn = document.getElementById('upload-btn');
+
+            if (!input.files || !input.files[0]) {
+                status.textContent = 'Please select an image file first.';
+                status.className = 'upload-status error';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', input.files[0]);
+
+            btn.disabled = true;
+            btn.textContent = 'Uploading...';
+            status.textContent = '';
+            status.className = 'upload-status';
+
+            try {
+                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (data.success) {
+                    window.location.href = data.playUrl;
+                } else {
+                    status.textContent = data.error || 'Upload failed.';
+                    status.className = 'upload-status error';
+                }
+            } catch (err) {
+                status.textContent = 'Upload failed. Please try again.';
+                status.className = 'upload-status error';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Upload & Play';
+            }
+        });
 
         loadPuzzles();
     </script>

@@ -41,10 +41,11 @@ class MenuScene extends Phaser.Scene {
             { pieces: 16, label: 'Medium (4x4)' },
             { pieces: 25, label: 'Standard (5x5)' },
             { pieces: 36, label: 'Hard (6x6)' },
-            { pieces: 49, label: 'Expert (7x7)' }
+            { pieces: 49, label: 'Expert (7x7)' },
+            { pieces: 500, label: 'Extreme (25x20)' }
         ];
 
-        const btnWidth = 160;
+        const btnWidth = 140;
         const btnHeight = 44;
         const btnGap = 12;
         const totalBtnsW = difficulties.length * btnWidth + (difficulties.length - 1) * btnGap;

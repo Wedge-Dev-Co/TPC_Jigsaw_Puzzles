@@ -11,7 +11,8 @@ const CONSTANTS = {
         '16': { cols: 4, rows: 4 },
         '25': { cols: 5, rows: 5 },
         '36': { cols: 6, rows: 6 },
-        '49': { cols: 7, rows: 7 }
+        '49': { cols: 7, rows: 7 },
+        '500': { cols: 25, rows: 20 }
     },
     DEFAULT_PIECES: 25
 };

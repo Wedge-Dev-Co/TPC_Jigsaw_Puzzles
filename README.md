@@ -1,6 +1,6 @@
 # TPC Jigsaw Puzzles
 
-A web-based jigsaw puzzle game built for [Teapot Commons](https://teapotcommons.com). Players drag and drop jigsaw-cut pieces to assemble an image, with five difficulty levels from 9 to 49 pieces. Designed for embedding in WordPress via the oEmbed protocol.
+A web-based jigsaw puzzle game built for [Teapot Commons](https://www.teapot-commons.com). Players drag and drop jigsaw-cut pieces to assemble an image, with five difficulty levels from 9 to 49 pieces. Designed for embedding in WordPress via the oEmbed protocol.
 
 ## Features
 
